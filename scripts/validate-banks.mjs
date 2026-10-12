@@ -1,9 +1,9 @@
-// Checks the exam simulator's catalog and question banks against the schema in exam-simulator/README.md.
+// Checks the exam simulator's catalog and question banks against the schema in README.md.
 // Run: node scripts/validate-banks.mjs
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
-const root = resolve(dirname(new URL(import.meta.url).pathname), '..', 'exam-simulator');
+const root = resolve(dirname(new URL(import.meta.url).pathname), '..');
 const problems = [];
 const bad = (where, msg) => problems.push(`${where}: ${msg}`);
 const read = (path) => {

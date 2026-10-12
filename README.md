@@ -11,7 +11,7 @@ This is an independent study tool. It is not affiliated with, endorsed by, or as
 ├── index.html                 the whole app (markup, styles, logic)
 ├── manifest.json               PWA manifest (name, colors, SVG icon)
 ├── banks.json                  catalog of certifications, each with its own list of question banks
-├── favicon.svg                 app icon (shared with the other projects on this site)
+├── favicon.svg                 app icon
 ├── sw.js                       service worker — caches the app + question banks for offline use
 └── questions/
     ├── developer-associate/
@@ -24,7 +24,7 @@ Each certification gets its own folder under `questions/` (add more as needed �
 
 ## Adding or editing question banks
 
-Want to contribute a bank for another exam or cloud provider? Read [CONTRIBUTING.md](../CONTRIBUTING.md) first (rules and checks), and validate with `node scripts/validate-banks.mjs` from the repository root.
+Want to contribute a bank for another exam or cloud provider? Read [CONTRIBUTING.md](CONTRIBUTING.md) first (rules and checks), and validate with `node scripts/validate-banks.mjs` from the repository root.
 
 1. Create a new JSON file inside the right folder under `questions/` (e.g. `questions/developer-associate/bank2.json`, or `questions/cloud-practitioner/bank1.json` for a brand-new certification folder) following this schema:
 
@@ -112,7 +112,21 @@ Once deployed and opened over HTTPS:
 
 Installed, it opens in its own window with no browser chrome, and works fully offline after the first visit (app shell + whichever question banks you've opened at least once).
 
+## Deployment
+
+This repository does not host the app itself. The site `brunopasqualini.github.io` publishes it at
+<https://brunopasqualini.github.io/exam-simulator/>:
+
+1. A push to `main` runs the checks in `.github/workflows/ci.yml` (the question banks are validated).
+2. If they pass, the workflow sends a `repository_dispatch` event (`project-updated`) to `brunopasqualini/brunopasqualini.github.io`.
+3. That repository checks out this one, copies the app into `exam-simulator/`, stamps `sw.js` with the commit SHA and deploys the site.
+
+The workflow needs a repository secret named `SITE_DISPATCH_TOKEN`: a fine-grained personal access token with **Contents: Read and write**
+on `brunopasqualini/brunopasqualini.github.io` (GitHub requires that permission to send `repository_dispatch`).
+
+To try the app locally, serve this folder with any static server, for example `python3 -m http.server`.
+
 ## Notes
 
 - Progress, flags, timer state, and attempt history are stored in the browser's `localStorage`, scoped per question bank. They don't sync across browsers or devices.
-- Bumping `CACHE_VERSION` at the top of `sw.js` forces all clients to drop old cached files and pick up new ones on their next visit — do this whenever you change `index.html` or `manifest.json` (question-bank JSON updates don't need it, since those are revalidated on every load when online).
+- `CACHE_VERSION` at the top of `sw.js` is stamped with the commit SHA when the site is built, which makes every client drop old cached files and pick up new ones on their next visit. You no longer bump it by hand; it applies to changes in `index.html` or `manifest.json` (question-bank JSON updates don't need it, since those are revalidated on every load when online).

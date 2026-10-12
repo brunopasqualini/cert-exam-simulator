@@ -1,0 +1,44 @@
+# Validates the catalog and question banks, so a contributed bank is checked before it is merged.
+#
+# - Pull requests: validate only.
+# - Push to main (i.e. a merge): validate, then tell the site repository to rebuild and redeploy.
+#   The site (brunopasqualini/brunopasqualini.github.io) checks this repository out, so nothing is pushed from here.
+#   Needs the repository secret SITE_DISPATCH_TOKEN, see README.md ("Deployment").
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  banks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: node scripts/validate-banks.mjs
+
+  deploy-site:
+    needs: banks
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask the site to rebuild
+        env:
+          GH_TOKEN: ${{ secrets.SITE_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::Secret SITE_DISPATCH_TOKEN is not set, so the site was not told to rebuild."
+            exit 1
+          fi
+          gh api repos/brunopasqualini/brunopasqualini.github.io/dispatches \
+            -f event_type=project-updated \
+            -f 'client_payload[project]=cert-exam-simulator' \
+            -f "client_payload[sha]=$GITHUB_SHA"

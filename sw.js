@@ -4,9 +4,11 @@
 //  - Question bank data (banks.json + each cert folder's *.json files under questions/):
 //    stale-while-revalidate, so a new or edited bank is picked up automatically when online,
 //    but a cached copy still works offline.
-// Bump CACHE_VERSION whenever the app shell files change, so old caches get cleared.
+// CACHE_VERSION is the commit SHA of this repository. The site build replaces the placeholder below with it, so every
+// deployed change gets a new cache and old caches are cleared. Do not edit it by hand; when served locally the
+// placeholder is used as is, which is fine for development.
 
-const CACHE_VERSION = "v4";
+const CACHE_VERSION = "__BUILD_SHA__";
 const SHELL_CACHE = "exam-sim-shell-" + CACHE_VERSION;
 const DATA_CACHE = "exam-sim-data-" + CACHE_VERSION;
 

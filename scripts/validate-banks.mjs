@@ -36,7 +36,7 @@ for (const cert of catalog.certifications ?? []) {
       continue;
     }
     if (!existsSync(join(root, bank.file))) {
-      bad(where, 'file does not exist (paths are relative to exam-simulator/)');
+      bad(where, 'file does not exist (paths are relative to the repository root)');
       continue;
     }
     const data = read(join(root, bank.file));

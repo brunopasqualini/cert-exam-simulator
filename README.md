@@ -1,132 +1,78 @@
-# Mock Exam Simulator (PWA)
+# Mock Exam Simulator: free AWS practice exams (SAA-C03, DVA-C02)
 
-An installable, offline-capable mock exam app for any certification test — AWS, Google Cloud, Microsoft, or anything else — as long as the questions are provided in this app's JSON format. Pure HTML/CSS/JS, no build step, no external dependencies. Question banks live as separate JSON files so you can add or edit exams without touching the app code.
+**Live app: <https://brunopasqualini.github.io/exam-simulator/>** (free, no signup, works offline).
 
-This is an independent study tool. It is not affiliated with, endorsed by, or associated with AWS, Google Cloud, Microsoft, or any other certification provider, and the bundled sample question content is AI-generated for practice purposes only — it is not official exam material. A disclaimer to this effect is shown at the bottom of every screen in the app.
+An installable, offline-capable mock exam app. It ships with 1,105 original practice questions for the AWS Certified Solutions Architect Associate (SAA-C03) and Developer Associate (DVA-C02) exams. It runs any certification whose questions follow the JSON format below. Plain HTML, CSS and JavaScript: no build step, no dependencies.
 
-## Project structure
+Features: timed and untimed exams, an explanation for every answer, flagging, a score by exam domain, a retest of weak areas, light and dark theme, and a "paste your own JSON" option.
+
+The questions are AI-generated from official documentation and are not official exam content. This is an independent study tool, not affiliated with AWS, Google Cloud, Microsoft or any other provider; the app says so on every screen.
+
+## Structure
 
 ```
-.
-├── index.html                 the whole app (markup, styles, logic)
-├── manifest.json               PWA manifest (name, colors, SVG icon)
-├── banks.json                  catalog of certifications, each with its own list of question banks
-├── favicon.svg                 app icon
-├── sw.js                       service worker — caches the app + question banks for offline use
-└── questions/
-    ├── developer-associate/
-    │   └── bank1.json          sample bank (replace with your generated question bank)
-    └── solutions-architect/
-        └── bank1.json          sample bank
+index.html       the whole app (markup, styles, logic)
+manifest.json    PWA manifest
+sw.js            service worker: offline cache
+banks.json       catalog: certifications, each with a list of question banks
+questions/       one folder per provider/exam, one JSON file per bank
+scripts/validate-banks.mjs   checks the catalog and every bank
 ```
 
-Each certification gets its own folder under `questions/` (add more as needed — name them however you like), and each folder can hold multiple numbered bank files (`bank1.json`, `bank2.json`, ...) so you can split a large question set or keep separate attempts.
+## Question banks
 
-## Adding or editing question banks
-
-Want to contribute a bank for another exam or cloud provider? Read [CONTRIBUTING.md](CONTRIBUTING.md) first (rules and checks), and validate with `node scripts/validate-banks.mjs` from the repository root.
-
-1. Create a new JSON file inside the right folder under `questions/` (e.g. `questions/developer-associate/bank2.json`, or `questions/cloud-practitioner/bank1.json` for a brand-new certification folder) following this schema:
+A bank is a JSON file:
 
 ```json
 {
-  "examTitle": "Certification Name — Sample Set",
+  "examTitle": "AWS Certified Developer - Associate (DVA-C02)",
   "questions": [
     {
       "id": 1,
       "domain": "Domain name from the exam guide",
       "type": "single",
-      "question": "The question text...",
+      "question": "Question text",
       "options": ["Option A", "Option B", "Option C", "Option D"],
       "correctAnswers": [1],
-      "explanation": "Why the correct answer is correct, and why the others aren't.",
-      "reference": "https://example.com/docs/..."
+      "explanation": "Why the answer is right and why each other option is wrong.",
+      "reference": "https://docs.example.com/..."
     }
   ]
 }
 ```
 
-- `type` is `"single"` or `"multi"`.
-- `correctAnswers` is an array of zero-based indices into `options` (one entry for `single`, two or more for `multi`).
-- `reference` is optional.
+- `type` is `single` (one entry in `correctAnswers`) or `multi` (two or more). `correctAnswers` holds zero-based indexes into `options`.
+- `domain` drives the score breakdown. `reference` is an optional `https` link.
 
-2. Register the file in `banks.json`. The catalog is two levels: a list of **certifications**, each with its own list of **banks**. To add a bank to an existing certification, add an entry to that certification's `banks` array, with `file` as the path from the site root:
-
-```json
-{
-  "certifications": [
-    {
-      "id": "developer-associate",
-      "title": "Developer Associate Certification",
-      "banks": [
-        {
-          "file": "questions/developer-associate/bank1.json",
-          "description": "..."
-        },
-        {
-          "file": "questions/developer-associate/bank2.json",
-          "description": "..."
-        }
-      ]
-    }
-  ]
-}
-```
-
-To add a brand-new certification, add a new object to the top-level `certifications` array (with its own `id`, `title`, and `banks` list), e.g.:
+Register each file in `banks.json`: a list of certifications, each with an `id`, a `title` and its `banks`. A bank entry needs only `file`, the path from the repo root (`description` is optional):
 
 ```json
-{
-  "id": "cloud-practitioner",
-  "title": "Cloud Practitioner Certification",
-  "banks": [
-    { "file": "questions/cloud-practitioner/bank1.json", "description": "..." }
-  ]
-}
+{ "certifications": [
+  { "id": "aws-dva-c02", "title": "AWS Certified Developer - Associate (DVA-C02)",
+    "banks": [ { "file": "questions/aws/dva-c02/DVA-C02_01.json" } ] }
+] }
 ```
 
-A bank entry only needs `file` (path from the site root) and an optional `description`. The app derives everything else itself:
+Check your changes with `node scripts/validate-banks.mjs`. To contribute a bank, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-- **Dropdown label**: always shown as "Question Bank N", where N is the bank's position (1-based) in that certification's `banks` array — any `title` you add to a bank entry is ignored. Reordering the array changes the numbers shown.
-- **Bank id** (used internally to key progress, flags, timer state and history in `localStorage`): derived from the file name with the folder path and `.json` stripped — e.g. `questions/developer-associate/bank1.json` → `bank1`. This means:
-  - **Don't rename a bank's file** once people have used it, or their saved progress/history for that bank becomes unreachable (it's still in `localStorage`, just orphaned under the old id).
-  - **File names only need to be unique within a certification**, not across the whole catalog — the derived id has no certification prefix, so `developer-associate/bank1.json` and `solutions-architect/bank1.json` both produce the id `bank1` and are kept apart only by which certification they're listed under. Giving every file a distinct name (e.g. `developer-associate-bank1.json`) avoids relying on that and is the safer convention if you ever plan to move bank entries between certifications.
+How the app uses the catalog:
 
-3. Commit and push. On the start screen, the person first picks a **certification** from one dropdown; a second dropdown then appears underneath listing that certification's banks. Selections are remembered (see below), so the new bank or certification shows up the next time the relevant dropdown is opened. If someone already has the app open or installed, they'll see it after their next reload — the service worker fetches question JSON with a stale-while-revalidate strategy, so a cached list is shown instantly while a fresh copy loads in the background.
+- Each exam run draws up to 65 random questions from the chosen bank.
+- A bank shows in the dropdown as "Question Bank N", N being its position in the certification's `banks` array.
+- A bank's id is its file name without folder and `.json` (`DVA-C02_01`). Progress, flags, timers and history in `localStorage` are keyed by it, so **do not rename a bank file** once people use it: their saved progress would be orphaned. Ids only need to be unique within a certification.
+- The last selected certification and bank are remembered. If one was removed from the catalog, the app falls back to the first available and shows a notice.
+- Progress and history stay in the browser (`localStorage`); nothing syncs or is sent anywhere.
 
-You can have as many question-bank files, under as many certification folders, as you like; each exam run pulls up to 65 random questions from the selected bank (fewer if the bank itself has fewer than 65).
+## Install and offline use
 
-## Remembering the selected certification and bank
+Over HTTPS: Chrome and Edge show an **Install app** button, Android Chrome has **Add to Home screen**, iOS Safari has **Share → Add to Home Screen**. After the first visit the app works offline (the shell, plus every bank you have opened).
 
-The start screen remembers the last certification and bank the person picked (stored in `localStorage`), and pre-selects both the next time they open the app — including after fully closing and reopening the browser. If either one was removed from `banks.json` since they last picked it (a certification deleted, or just one bank removed from under a certification that still exists), the app falls back to the first available option in the affected dropdown and shows a short explanatory notice above the dropdowns instead of silently switching.
-
-Note that this is matched by the bank's derived id (see "Adding or editing question banks" above), not by its dropdown position — so reordering banks within a certification's array is safe and won't trigger the notice, but renaming a bank's file will (the app will treat it as a different, unrecognized bank).
-
-## Installing as an app
-
-Once deployed and opened over HTTPS:
-
-- **Desktop Chrome/Edge**: an "Install app" button appears in the top bar if the browser considers the app installable.
-- **Android Chrome**: "Add to Home screen" from the browser menu, or the same in-app install button.
-- **iOS Safari**: Share → "Add to Home Screen" (iOS does not support the `beforeinstallprompt` button, so this is the only path there).
-
-Installed, it opens in its own window with no browser chrome, and works fully offline after the first visit (app shell + whichever question banks you've opened at least once).
+The service worker caches the shell first, and fetches question JSON stale-while-revalidate, so new or edited banks appear on the next load when online. `CACHE_VERSION` in `sw.js` is the placeholder `__BUILD_SHA__`; the site build replaces it with the commit SHA so every deploy clears old caches. Never edit it by hand.
 
 ## Deployment
 
-This repository does not host the app itself. The site `brunopasqualini.github.io` publishes it at
-<https://brunopasqualini.github.io/exam-simulator/>:
+This repo does not host the app. A push to `main` runs `.github/workflows/ci.yml` (validates the banks), then sends a `repository_dispatch` event (`project-updated`) to [brunopasqualini.github.io](https://github.com/brunopasqualini/brunopasqualini.github.io), which copies the app into `/exam-simulator/`, stamps `sw.js` and deploys the site.
 
-1. A push to `main` runs the checks in `.github/workflows/ci.yml` (the question banks are validated).
-2. If they pass, the workflow sends a `repository_dispatch` event (`project-updated`) to `brunopasqualini/brunopasqualini.github.io`.
-3. That repository checks out this one, copies the app into `exam-simulator/`, stamps `sw.js` with the commit SHA and deploys the site.
+Needs the secret `SITE_DISPATCH_TOKEN` in this repo: a fine-grained token on `brunopasqualini/brunopasqualini.github.io` with **Contents: Read and write** (required to send `repository_dispatch`).
 
-The workflow needs a repository secret named `SITE_DISPATCH_TOKEN`: a fine-grained personal access token with **Contents: Read and write**
-on `brunopasqualini/brunopasqualini.github.io` (GitHub requires that permission to send `repository_dispatch`).
-
-To try the app locally, serve this folder with any static server, for example `python3 -m http.server`.
-
-## Notes
-
-- Progress, flags, timer state, and attempt history are stored in the browser's `localStorage`, scoped per question bank. They don't sync across browsers or devices.
-- `CACHE_VERSION` at the top of `sw.js` is stamped with the commit SHA when the site is built, which makes every client drop old cached files and pick up new ones on their next visit. You no longer bump it by hand; it applies to changes in `index.html` or `manifest.json` (question-bank JSON updates don't need it, since those are revalidated on every load when online).
+To run locally, serve this folder with any static server, for example `python3 -m http.server`.
